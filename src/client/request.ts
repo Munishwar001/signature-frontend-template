@@ -8,7 +8,6 @@ export class RequestClient extends Client {
 		formValues: {
 			title : string,
 			description : string,
-			// officer : string,
 			file :any,
 		}
 	) {
@@ -18,14 +17,11 @@ export class RequestClient extends Client {
 			console.log("title",formValues.title);
 			formData.append("description", formValues.description);
 			console.log("description",formValues.description);
-			// formData.append("officerName", formValues.officer);
-			// console.log("officerName",formValues.officer);
 			formData.append("file", formValues.file[0].originFileObj);
 			console.log("file",formValues.file[0].originFileObj);
 			for (var pair of formData.entries()) {
 				console.log("pair",pair);
 			}
-            // alert("sending the request");
 			const res = await this.request("POST",  `/api/templates`, {
 				data: formData,
 				headers: { "Content-Type" : "multipart/form-data"}

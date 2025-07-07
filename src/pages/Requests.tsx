@@ -161,7 +161,7 @@ const Requests: React.FC = () => {
       key: "signStatus",
       render: (_: any, record: any) => (
         <Tag color={record.signStatus  == 0 ? 'orange' : record.signStatus  == 1 ? 'green' : 'red'}  onClick={ () => {console.log(record.signStatus )}}>
-                      {record.signStatus  == 0 ? 'Unsigned' : record.signStatus  == 1 ? 'Signed' : 'Rejected'}
+                      {record.signStatus  == 0 ? 'Unsigned' : record.signStatus  == 1 ? 'Signed' : record.signStatus  == 4 ?'inProgress' : 'Rejected'}
                   </Tag>
       ),
     },
@@ -187,10 +187,11 @@ const Requests: React.FC = () => {
         };
 
         const menu = (
-          <Menu onClick={handleMenuClick}>
+          <Menu onClick={handleMenuClick}> 
             <Menu.Item key="clone">Clone</Menu.Item>
-            <Menu.Item key="send">Send for Signature</Menu.Item>
-            <Menu.Item key="delete">Delete</Menu.Item>
+            { userRole==3 ? <Menu.Item key="send">Send for Signature</Menu.Item> :<Menu.Item key="delegate">Delegate for Signature</Menu.Item>} 
+            {(userRole==3 &&  record.signStatus!=4)&& <Menu.Item key="delete">Delete</Menu.Item> }
+            {userRole==2 && <Menu.Item key="sign">Sign</Menu.Item>}
           </Menu>
         );
 
