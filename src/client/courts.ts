@@ -90,6 +90,7 @@ export class CourtClient extends Client {
 				console.error(error);
 			}
 		});
+		console.log("officers in court.ts", officers);
 		return officers;
 	}
 }

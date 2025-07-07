@@ -19,6 +19,7 @@ export const courtOfficerSchema = Zod.object({
 	_id: Zod.string(),
 	id: Zod.string(),
 	name: Zod.string(),
+	email: Zod.string(),
 });
 
 export const CourtSchemaForUsers = courtSchema.omit({ userCount: true });
