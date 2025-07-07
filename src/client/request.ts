@@ -1,4 +1,3 @@
-import { error } from "console";
 import { Client } from "./abstract";
 
 export class RequestClient extends Client {
@@ -52,8 +51,8 @@ export class RequestClient extends Client {
 				});
 				console.log(res);
 				return res;
-		} catch{
-			console.log("error while send for signature =>" , error);
+		} catch(err){
+			console.log("error while send for signature =>" , err);
 
 		}
 	}

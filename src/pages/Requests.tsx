@@ -63,7 +63,7 @@ const Requests: React.FC = () => {
       message.success("Request deleted successfully");
       } 
   }catch(err){
-    console.log("Error deleting request", err);
+    // console.log("Error deleting request", err);
   } 
 }
   const handleAddNewRequest = async () => {
@@ -76,7 +76,7 @@ const Requests: React.FC = () => {
       setIsDrawerOpen(false);
       await fetchRequest();
     } catch (error) {
-      console.error("Error submitting request:", error);
+      // console.error("Error submitting request:", error);
       message.error('Failed to submit request');
     }finally{
       setLoading(false);
@@ -103,8 +103,8 @@ const Requests: React.FC = () => {
     message.error("Please select an officer.");
     return;
   }
-    //  alert(selectedOfficer);
-    //  console.error("  wqdfegrhjkjyhgfdsdfghjjhytgfdsasdfgh")
+     alert(selectedOfficer);
+     console.error("  wqdfegrhjkjyhgfdsdfghjjhytgfdsasdfgh")
   try {
     await requestClient.sendRequestToOfficer({
       recordId: selectedRequest.id,
