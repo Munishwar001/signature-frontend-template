@@ -139,4 +139,15 @@ export class RequestClient extends Client {
 	console.log("Error while deleting the template => ",err);
    }}
 
+    async handleDelegate(record:any){
+			try{
+                const res = await this.request("POST", `/api/templates/delegate`, {
+					data: record,
+					});
+					console.log("response of this requestClient",res);
+					return res;
+			} catch(error){
+				 console.log("Error while Delegation the request => ",error);
+			}
+	}
  }

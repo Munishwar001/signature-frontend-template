@@ -22,6 +22,8 @@ import {
   Menu ,
   Modal
 } from "antd";
+import { roles } from "../libs/constants";
+import { record } from "zod";
 
 interface RequestItem {
   id: string;
@@ -49,7 +51,9 @@ const Requests: React.FC = () => {
   const getSession = useAppStore().init; 
   const session = useAppStore().session?.userId;
   const userRole = useAppStore().session?.role;
-
+  const [isDelegateModalOpen, setIsDelegateModalOpen] = useState(false);
+  const [delegateReason, setDelegateReason] = useState("");
+  const [delegationRecord, setDelegationRecord] = useState<RequestItem | null>(null);
 
   const handleDrawer = () => {
     setIsDrawerOpen(true);
@@ -119,6 +123,11 @@ const Requests: React.FC = () => {
     console.error("Error sending request:", err);
     message.error("Failed to send request");
   }
+}; 
+
+const handleDelegate = (record: any) => {
+  setDelegationRecord(record);
+  setIsDelegateModalOpen(true);
 };
   const columns = [
     {
@@ -143,7 +152,10 @@ const Requests: React.FC = () => {
       title: "Rejected Document",
       dataIndex: "rejectCount",
       key: "RejectedDocument",
-      render: (count: number) => count || 0,
+      render: (count: number) =><Button 
+      type="link">
+        {count || 0 }
+      </Button> 
     },
     {
       title: "Created At",
@@ -159,11 +171,23 @@ const Requests: React.FC = () => {
       title: "Status",
       dataIndex: "signStatus",
       key: "signStatus",
-      render: (_: any, record: any) => (
-        <Tag color={record.signStatus  == 0 ? 'orange' : record.signStatus  == 1 ? 'green' : 'red'}  onClick={ () => {console.log(record.signStatus )}}>
-                      {record.signStatus  == 0 ? 'Unsigned' : record.signStatus  == 1 ? 'Signed' : record.signStatus  == 4 ?'inProgress' : 'Rejected'}
-                  </Tag>
-      ),
+      render: (_: any, record: any) => {
+        const statusMap = {
+          0: { label: 'Unsigned', color: 'orange' },
+          1: { label: 'Signed', color: 'green' },
+          3: { label: 'Delegated', color: 'blue' },
+          4: { label: 'In Progress', color: 'purple' },
+          default: { label: 'Rejected', color: 'red' },
+        };
+         let signstatusValue = record.signStatus ; 
+        const { label, color } = statusMap[signstatusValue] || statusMap.default;
+      
+        return (
+          <Tag color={color} onClick={() => console.log(record.signStatus)}>
+            {label}
+          </Tag>
+        );
+      }
     },
     {
       //  title: "Actions",
@@ -183,15 +207,20 @@ const Requests: React.FC = () => {
             handleSend(record);
           } else if (key === "delete") {
             handleDelete(record._id);
+          } else if(key === 'sign'){
+            navigate(`/dashboard/signatures`);
+           } else if(key === 'delegate'){
+             handleDelegate(record);
           }
         };
 
         const menu = (
           <Menu onClick={handleMenuClick}> 
             <Menu.Item key="clone">Clone</Menu.Item>
-            { userRole==3 ? <Menu.Item key="send">Send for Signature</Menu.Item> :<Menu.Item key="delegate">Delegate for Signature</Menu.Item>} 
-            {(userRole==3 &&  record.signStatus!=4)&& <Menu.Item key="delete">Delete</Menu.Item> }
-            {userRole==2 && <Menu.Item key="sign">Sign</Menu.Item>}
+            { userRole==3 &&  record.signStatus==0 && <Menu.Item key="send">Send for Signature</Menu.Item> }
+            {userRole==2 &&  <Menu.Item key="delegate">Delegate for Signature</Menu.Item>} 
+            {(userRole==3 &&  record.signStatus==0)&& <Menu.Item key="delete">Delete</Menu.Item> }
+            {(userRole==2 || (userRole==3 && record.signStatus==3) )&& <Menu.Item key="sign">Sign</Menu.Item>}
           </Menu>
         );
 
@@ -227,8 +256,12 @@ const Requests: React.FC = () => {
   useEffect(() => {
     const getOfficers = async () => {
       try {
-        const response = await courtClient.getOfficers();
-        setOfficers(Array.isArray(response) ? response : []);
+        const response = await courtClient.getOfficers(); 
+        const loggedInOfficerId  = session;
+        const filteredOfficers = Array.isArray(response) 
+        ? response.filter(officer => officer.id !== loggedInOfficerId) 
+        : [];
+        setOfficers(filteredOfficers);
       } catch (error) {
         console.error("Error fetching officers:", error);
         setOfficers([]);
@@ -302,21 +335,6 @@ const Requests: React.FC = () => {
             </Upload>
           </Form.Item>
 
-          {/* <Form.Item
-            label="Select the officer"
-            name="officer"
-            rules={[{ required: true, message: 'Please select an officer' }]}
-          >
-            <Select
-              mode="tags"
-              options={officer.map(el => ({
-                label: `${el.name} <${el.email}>`,
-                value: el.id,
-              }))}
-              placeholder="Please enter the officer"
-            />
-          </Form.Item> */}
-
           <Form.Item
             label="Description"
             name="description"
@@ -362,7 +380,49 @@ const Requests: React.FC = () => {
             />
           </Form.Item>
         </Form>
-      </Modal>
+      </Modal> 
+      <Modal
+  title="Delegate Request"
+  visible={isDelegateModalOpen}
+  onCancel={() => {
+    setIsDelegateModalOpen(false);
+    setDelegateReason("");
+  }}
+  onOk={async () => {
+    if (!delegateReason.trim()) {
+      message.warning("Please enter a reason for delegation.");
+      return;
+    }
+    try {
+      await requestClient.handleDelegate({
+        recordId: delegationRecord?.id,
+        reason: delegateReason,
+      });
+      message.success("Request delegated successfully");
+      setIsDelegateModalOpen(false);
+      setDelegateReason("");
+      setDelegationRecord(null);
+      fetchRequest();
+    } catch (err) {
+      console.error("Delegation error:", err);
+      message.error("Failed to delegate request");
+    }
+  }}
+  okText="Submit"
+  cancelText="Cancel"
+>
+  <Form layout="vertical">
+    <Form.Item label="Reason for Delegation" required>
+      <Input.TextArea
+        rows={4}
+        placeholder="Enter reason here..."
+        value={delegateReason}
+        onChange={(e) => setDelegateReason(e.target.value)}
+      />
+    </Form.Item>
+  </Form>
+</Modal>
+
     </MainAreaLayout>
   );
 };
