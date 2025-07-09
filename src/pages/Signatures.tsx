@@ -1,26 +1,36 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Layout, Typography, Upload, Button, message, Card } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
+import { signClient } from  "../store";
+
 
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
 const Signatures: React.FC = () => {
-  const props = {
-    name: 'file',
-    multiple: false,
-    action: '/api/upload',
-    onChange(info: any) {
-      const { status } = info.file;
-      if (status !== 'uploading') {
-        console.log(info.file, info.fileList);
-      }
-      if (status === 'done') {
-        message.success(`${info.file.name} file uploaded successfully.`);
-      } else if (status === 'error') {
-        message.error(`${info.file.name} file upload failed.`);
-      }
+  const [fileList, setFileList] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async () => {
+    const formData = new FormData();
+    fileList.forEach(file => {
+      formData.append('file', file as any); 
+    });
+
+    setUploading(true);
+    await signClient.upload(formData);
+    setUploading(false);
+  };
+
+  const uploadProps = {
+    beforeUpload: (file: any) => {
+      setFileList([file]); 
+      return false; 
     },
+    onRemove: () => {
+      setFileList([]);
+    },
+    fileList,
   };
 
   return (
@@ -42,13 +52,23 @@ const Signatures: React.FC = () => {
           title={<Title level={3}>Upload a Signature File</Title>}
           style={{
             width: '100%',
-            maxWidth: '1000px',
+            maxWidth: '600px',
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
           }}
         >
-          <Upload {...props}>
-            <Button icon={<UploadOutlined />}>Click to Upload</Button>
+          <Upload {...uploadProps}>
+            <Button icon={<UploadOutlined />}>Select File</Button>
           </Upload>
+
+          <Button
+            type="primary"
+            onClick={handleUpload}
+            disabled={fileList.length === 0 || uploading}
+            loading={uploading}
+            style={{ marginTop: 16 }}
+          >
+            {uploading ? 'Uploading...' : 'Start Upload'}
+          </Button>
         </Card>
       </Content>
     </Layout>
