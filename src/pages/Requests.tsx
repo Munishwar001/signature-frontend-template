@@ -3,7 +3,7 @@ import CustomTable from "../components/CustomTable";
 import { useState, useEffect } from "react";
 import { UploadOutlined, DownOutlined } from "@ant-design/icons";
 import { courtClient } from "../store";
-import { requestClient } from "../store";
+import { requestClient , signClient } from "../store";
 import { useNavigate } from "react-router";
 import { useAppStore } from "../store";
 import {
@@ -14,16 +14,13 @@ import {
   Upload,
   Select,
   Tag,
-  Space,
   Spin,
-  Popconfirm,
   message,
   Dropdown,
   Menu ,
-  Modal
+  Modal , 
+  Image
 } from "antd";
-import { roles } from "../libs/constants";
-import { record } from "zod";
 
 interface RequestItem {
   id: string;
@@ -54,6 +51,9 @@ const Requests: React.FC = () => {
   const [isDelegateModalOpen, setIsDelegateModalOpen] = useState(false);
   const [delegateReason, setDelegateReason] = useState("");
   const [delegationRecord, setDelegationRecord] = useState<RequestItem | null>(null);
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+  const [signatureImages, setSignatureImages] = useState<string[]>([]);
+
 
   const handleDrawer = () => {
     setIsDrawerOpen(true);
@@ -114,7 +114,7 @@ const Requests: React.FC = () => {
       recordId: selectedRequest.id,
       officerId: selectedOfficer 
     });
-    message.success("Request sent for signaturjhbvcvbnbvbne");
+    message.success("Request sent for signature");
     setIsModalOpen(false); 
     setSelectedRequest(null);
     setSelectedOfficer(null);
@@ -208,7 +208,9 @@ const handleDelegate = (record: any) => {
           } else if (key === "delete") {
             handleDelete(record._id);
           } else if(key === 'sign'){
-            navigate(`/dashboard/signatures`);
+            // navigate(`/dashboard/signatures`);
+             fetchUploadedSignatures(); 
+             setIsSignatureModalOpen(true);
            } else if(key === 'delegate'){
              handleDelegate(record);
           }
@@ -252,7 +254,20 @@ const handleDelegate = (record: any) => {
       setLoading(false);
     }
   };
-
+  const fetchUploadedSignatures = async () => {
+    try {
+      const response = await signClient.getSign(session); // fetch using logged-in userId
+      const urls = Array.isArray(response)
+        ? response.map((item: any) => item.url)
+        : [];
+      setSignatureImages(urls);
+    } catch (error) {
+      console.error("Error fetching signatures:", error);
+      message.error("Failed to load signatures");
+      setSignatureImages([]);
+    }
+  };
+  
   useEffect(() => {
     const getOfficers = async () => {
       try {
@@ -422,6 +437,35 @@ const handleDelegate = (record: any) => {
     </Form.Item>
   </Form>
 </Modal>
+ <Modal
+  title="Your Uploaded Signatures"
+  visible={isSignatureModalOpen}
+  onCancel={() => setIsSignatureModalOpen(false)}
+  footer={[
+    <Button key="cancel" onClick={() => setIsSignatureModalOpen(false)}>
+      Close
+    </Button>,
+    <Button key="goto" type="primary" onClick={() => navigate('/dashboard/signatures')}>
+      Go to Signature Page
+    </Button>,
+  ]}
+>
+  {signatureImages.length > 0 ? (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+      {signatureImages.map((url, idx) => (
+        <Image 
+          key={idx}
+          src={url}
+          alt={`Signature ${idx + 1}`}
+          style={{ width: 120, border: '1px solid #ccc', padding: 4, borderRadius: 4 }}
+        />
+      ))}
+    </div>
+  ) : (
+    <p>No signatures uploaded yet.</p>
+  )}
+ </Modal>
+
 
     </MainAreaLayout>
   );
