@@ -108,7 +108,8 @@ export class RequestClient extends Client {
                     ...item,
                     data: new Map(Object.entries(item.data))
                 })) || [],
-                templateVariables: response.data.templateVariables || []
+                templateVariables: response.data.templateVariables || [] , 
+				templateName:response.data.templateName
             };
         } catch (error) {
             throw error;
@@ -149,5 +150,14 @@ export class RequestClient extends Client {
 			} catch(error){
 				 console.log("Error while Delegation the request => ",error);
 			}
+	}   
+
+	async previewDocs(id:String){
+         try{
+		const previewUrl = `http://localhost:3000/api/templates/previewDocs/${id}`;
+		window.open(previewUrl, "_blank"); 
+	  }catch(error){
+
+	  }
 	}
  }

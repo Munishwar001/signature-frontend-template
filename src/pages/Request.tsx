@@ -1,11 +1,14 @@
 import { Button, Drawer, Form, Upload, Space, message, Tag, Spin , Popconfirm } from "antd";
 import MainAreaLayout from "../components/main-layout/main-layout";
-import { useEffect, useState } from "react";
+import { useEffect, useState ,useRef} from "react";
 import { useParams } from 'react-router';
 import { UploadOutlined } from "@ant-design/icons";
 import { requestClient } from "../store";
 import CustomTable from "../components/CustomTable";
 import { useAppStore } from "../store";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+
 
 export default function RequestPage() {
   const [form] = Form.useForm();
@@ -14,8 +17,11 @@ export default function RequestPage() {
   const [tableData, setTableData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const getSession = useAppStore().init; 
-  const session = useAppStore().session?.userId;
+  // const session = useAppStore().session?.userId;
   const userRole = useAppStore().session?.role;
+  const templateVariablesRef = useRef([]);
+  const  templateTitleRef = useRef('');
+
   const { id } = useParams();
 
   const handleDrawer = () => setIsDrawerOpen(true);
@@ -38,7 +44,6 @@ export default function RequestPage() {
   };
   const handleDelete = async (record:any) =>{
     try {
-      //  alert("in handle delete function ");
       const response = await requestClient.deleteRequest(record , id);
       if (response) {
       message.success(`Deleted`);
@@ -57,7 +62,31 @@ export default function RequestPage() {
     message.error("Preview failed");
   }
   };
+  
+  const handleDownloadFormatTemplate = () => {
+    const headers = templateVariablesRef.current
+      .map((v: any) => v.name);
 
+    if (headers.length === 0) {
+      message.warning("No template variables found.");
+      return;
+    }
+
+    const worksheetData = [headers];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    const file = new Blob([excelBuffer], { type: "application/octet-stream" });
+    saveAs(file, "format_template.xlsx");
+  };
+  
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -69,7 +98,8 @@ export default function RequestPage() {
         setTableData([]);
         return;
       }
-
+      templateVariablesRef.current = response.templateVariables || [];
+      templateTitleRef.current = response.templateName;
       const fieldColumns = response.allfields.map((field: string) => ({
         title: field,
         dataIndex: field,
@@ -144,27 +174,28 @@ export default function RequestPage() {
 
   return (
     <MainAreaLayout
-  title="Template Data Manager"
-  extra={
-    userRole === 3 && (
-      <>
-        <Button
-          type="primary"
-          onClick={handleDrawer}
-          className="px-6 py-2 text-lg rounded-md"
-        >
-          Bulk Upload
-        </Button>
-        <Button
-          type="primary"
-          className="px-6 py-2 text-lg rounded-md"
-        >
-          Download Format Template 
-        </Button>
-      </>
-    )
-  }
->
+      title= {templateTitleRef.current}
+      extra={
+        userRole === 3 && (
+          <>
+            <Button
+              type="primary"
+              onClick={handleDrawer}
+              className="px-6 py-2 text-lg rounded-md"
+            >
+              Bulk Upload
+            </Button>
+            <Button
+              type="primary"
+              className="px-6 py-2 text-lg rounded-md"
+              onClick={handleDownloadFormatTemplate}
+            >
+              Download Format Template
+            </Button>
+          </>
+        )
+      }
+    >
       {loading ? (
         <div className="text-center py-8">
           <Spin size="large" />
@@ -175,18 +206,22 @@ export default function RequestPage() {
             name: "",
             show: true,
           }}
-          columns={dynamicColumns.length > 0 ? dynamicColumns : [
-            {
-              title: "No Data Available",
-              dataIndex: "noData",
-              key: "noData",
-              render: () => "Upload data or check template fields",
-            }
-          ]}
+          columns={
+            dynamicColumns.length > 0
+              ? dynamicColumns
+              : [
+                  {
+                    title: "No Data Available",
+                    dataIndex: "noData",
+                    key: "noData",
+                    render: () => "Upload data or check template fields",
+                  },
+                ]
+          }
           data={tableData}
         />
       )}
-      
+
       <Drawer
         title="Upload Data"
         placement="right"
@@ -194,29 +229,30 @@ export default function RequestPage() {
         open={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
       >
-        <Form
-          layout="vertical"
-          form={form}
-        >
+        <Form layout="vertical" form={form}>
           <Form.Item
             label="Excel File"
             name="file"
-            rules={[{ required: true, message: 'Please upload a file' }]}
+            rules={[{ required: true, message: "Please upload a file" }]}
             valuePropName="fileList"
             getValueFromEvent={(e) => e.fileList}
           >
-            <Upload 
-              beforeUpload={() => false} 
-              accept=".xlsx,.xls" 
+            <Upload
+              beforeUpload={() => false}
+              accept=".xlsx,.xls"
               maxCount={1}
               disabled={loading}
             >
               <Button icon={<UploadOutlined />}>Select File</Button>
             </Upload>
           </Form.Item>
-             <p> <strong>Note :</strong> Ensure the placeholders in the Template, match the 
-             column headers in the Excel file. Upload the file with text data only, avoiding 
-             special characters and images</p> <br />
+          <p>
+            {" "}
+            <strong>Note :</strong> Ensure the placeholders in the Template,
+            match the column headers in the Excel file. Upload the file with
+            text data only, avoiding special characters and images
+          </p>{" "}
+          <br />
           <Button
             type="primary"
             htmlType="submit"

@@ -3,7 +3,7 @@ import CustomTable from "../components/CustomTable";
 import { useState, useEffect } from "react";
 import { UploadOutlined, DownOutlined } from "@ant-design/icons";
 import { courtClient } from "../store";
-import { requestClient , signClient } from "../store";
+import { requestClient, signClient } from "../store";
 import { useNavigate } from "react-router";
 import { useAppStore } from "../store";
 import {
@@ -17,155 +17,170 @@ import {
   Spin,
   message,
   Dropdown,
-  Menu ,
-  Modal , 
-  Image
+  Menu,
+  Modal,
+  Image,
 } from "antd";
 
 interface RequestItem {
   id: string;
   templateName?: string;
   documentCount?: number;
-  data?:Array<any>;
-  signStatus?:number;
+  data?: Array<any>;
+  signStatus?: number;
   rejectedCount?: number;
   createdAt?: string;
   status?: string;
 }
 
 const Requests: React.FC = () => {
-    const navigate = useNavigate();
+  const navigate = useNavigate();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [form] = Form.useForm();
   const [officer, setOfficers] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(null);
-  const [selectedOfficer, setSelectedOfficer] = useState<string | null>(null); 
+  const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(
+    null
+  );
+  const [selectedOfficer, setSelectedOfficer] = useState<string | null>(null);
   const [, setCurrentPage] = useState<number>(1);
   const [request, setRequest] = useState<RequestItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [search , setSearch] = useState("");
-  const getSession = useAppStore().init; 
+  const [search, setSearch] = useState("");
+  const getSession = useAppStore().init;
   const session = useAppStore().session?.userId;
   const userRole = useAppStore().session?.role;
   const [isDelegateModalOpen, setIsDelegateModalOpen] = useState(false);
   const [delegateReason, setDelegateReason] = useState("");
-  const [delegationRecord, setDelegationRecord] = useState<RequestItem | null>(null);
+  const [delegationRecord, setDelegationRecord] = useState<RequestItem | null>(
+    null
+  );
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [signatureImages, setSignatureImages] = useState<string[]>([]);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
 
   const handleDrawer = () => {
     setIsDrawerOpen(true);
   };
-  
-  const handleDelete = async (id: string) => { 
+
+  const handleDelete = async (id: string) => {
     try {
       const res = await requestClient.deleteWholeTemplate(id);
       if (res) {
-      await fetchRequest();
-      message.success("Request deleted successfully");
-      } 
-  }catch(err){
-    // console.log("Error deleting request", err);
-  } 
-}
+        await fetchRequest();
+        message.success("Request deleted successfully");
+      }
+    } catch (err) {
+      console.log("Error deleting request", err);
+      message.error("Enable to delete");
+    }
+  };
   const handleAddNewRequest = async () => {
     try {
       const values = await form.validateFields();
       setLoading(true);
       await requestClient.uploadFormData(values);
-      message.success('Request submitted successfully');
+      message.success("Request submitted successfully");
       form.resetFields();
       setIsDrawerOpen(false);
       await fetchRequest();
     } catch (error) {
       // console.error("Error submitting request:", error);
-      message.error('Failed to submit request');
-    }finally{
+      message.error("Failed to submit request");
+    } finally {
       setLoading(false);
-    } 
+    }
   };
- const handleSend = async (record:any) =>{
-  const hasData =   record.data.length;
-   try {
-    if(hasData<=0){
+  const handleSend = async (record: any) => {
+    const hasData = record.data.length;
+    try {
+      if (hasData <= 0) {
         message.info("Plesae upload the Bulk Data First");
-        return ;}
+        return;
+      }
 
-        setSelectedRequest(record);
-        setIsModalOpen(true);  
-      
-}
-  catch(err){ 
-    console.log("Error while sending the request to officer =>",err)
-  }
- } 
+      setSelectedRequest(record);
+      setIsModalOpen(true);
+    } catch (err) {
+      console.log("Error while sending the request to officer =>", err);
+    }
+  };
 
- const handleOfficerSelection = async () => { 
-  if (!selectedOfficer || !selectedRequest) {
-    message.error("Please select an officer.");
-    return;
-  }
-     alert(selectedOfficer);
-     console.error("  wqdfegrhjkjyhgfdsdfghjjhytgfdsasdfgh")
-  try {
-    await requestClient.sendRequestToOfficer({
-      recordId: selectedRequest.id,
-      officerId: selectedOfficer 
-    });
-    message.success("Request sent for signature");
-    setIsModalOpen(false); 
-    setSelectedRequest(null);
-    setSelectedOfficer(null);
-    // await fetchRequest(); 
-  } catch (err) {
-    console.error("Error sending request:", err);
-    message.error("Failed to send request");
-  }
-}; 
+  const handleOfficerSelection = async () => {
+    if (!selectedOfficer || !selectedRequest) {
+      message.error("Please select an officer.");
+      return;
+    }
+    // alert(selectedOfficer);
+    // console.error("  wqdfegrhjkjyhgfdsdfghjjhytgfdsasdfgh");
+    try {
+      await requestClient.sendRequestToOfficer({
+        recordId: selectedRequest.id,
+        officerId: selectedOfficer,
+      });
+      message.success("Request sent for signature");
+      setIsModalOpen(false);
+      setSelectedRequest(null);
+      setSelectedOfficer(null);
+      // await fetchRequest();
+    } catch (err) {
+      console.error("Error sending request:", err);
+      message.error("Failed to send request");
+    }
+  };
 
-const handleDelegate = (record: any) => {
-  setDelegationRecord(record);
-  setIsDelegateModalOpen(true);
-};
+  const handleDelegate = (record: any) => {
+    setDelegationRecord(record);
+    setIsDelegateModalOpen(true);
+  };
   const columns = [
     {
       title: "Request",
       dataIndex: "templateName",
       key: "name",
+      render: (count: any[], record: any) => (
+        <Button
+          type="link"
+          onClick={async () => { 
+            await requestClient.previewDocs(record.id)
+          }}
+        >
+          {record.templateName}
+        </Button>
+      ),
     },
     {
       title: "No. of Document",
       dataIndex: "data",
       key: "NoOfDocument",
-    render: (count:any[] , record: any) => (
-                    <Button
-                        type="link"
-                        onClick={() => {navigate(`/dashboard/request/${record.id}`) }}
-                    >
-                        {count.length || 0}  
-                    </Button>
-                ),
+      render: (count: any[], record: any) => (
+        <Button
+          type="link"
+          onClick={() => {
+            navigate(`/dashboard/request/${record.id}`);
+          }}
+        >
+          {count.length || 0}
+        </Button>
+      ),
     },
     {
       title: "Rejected Document",
       dataIndex: "rejectCount",
       key: "RejectedDocument",
-      render: (count: number) =><Button 
-      type="link">
-        {count || 0 }
-      </Button> 
+      render: (count: number) => <Button type="link">{count || 0}</Button>,
     },
     {
       title: "Created At",
       dataIndex: "createdAt",
       key: "CreatedAt",
-      sorter: (a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    render: (createdAt: string) => {
-    const date = new Date(createdAt);
-    return `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getFullYear()}`;
-  },
+      sorter: (a: any, b: any) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      render: (createdAt: string) => {
+        const date = new Date(createdAt);
+        return `${date.getDate().toString().padStart(2, "0")}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getFullYear()}`;
+      },
     },
     {
       title: "Status",
@@ -173,21 +188,21 @@ const handleDelegate = (record: any) => {
       key: "signStatus",
       render: (_: any, record: any) => {
         const statusMap = {
-          0: { label: 'Unsigned', color: 'orange' },
-          1: { label: 'Signed', color: 'green' },
-          3: { label: 'Delegated', color: 'blue' },
-          4: { label: 'In Progress', color: 'purple' },
-          default: { label: 'Rejected', color: 'red' },
+          0: { label: "Unsigned", color: "orange" },
+          1: { label: "Signed", color: "green" },
+          3: { label: "Delegated", color: "blue" },
+          4: { label: "In Progress", color: "purple" },
+          default: { label: "Rejected", color: "red" },
         };
-         let signstatusValue = record.signStatus ; 
+        let signstatusValue = record.signStatus;
         const { label, color } = statusMap[signstatusValue] || statusMap.default;
-      
+
         return (
           <Tag color={color} onClick={() => console.log(record.signStatus)}>
             {label}
           </Tag>
         );
-      }
+      },
     },
     {
       //  title: "Actions",
@@ -195,39 +210,47 @@ const handleDelegate = (record: any) => {
       render: (_: any, record: any) => {
         const handleMenuClick = ({ key }: any) => {
           if (key === "clone") {
-            requestClient.cloneFormData(record._id)
-        .then(() => {
-          message.success("Request cloned successfully");
-          fetchRequest(); 
-        })
-        .catch(() => {
-          message.error("Failed to clone request");
-        });
-          } else if (key === "send") { 
+            requestClient
+              .cloneFormData(record._id)
+              .then(() => {
+                message.success("Request cloned successfully");
+                fetchRequest();
+              })
+              .catch(() => {
+                message.error("Failed to clone request");
+              });
+          } else if (key === "send") {
             handleSend(record);
           } else if (key === "delete") {
             handleDelete(record._id);
-          } else if(key === 'sign'){
-            // navigate(`/dashboard/signatures`);
-             fetchUploadedSignatures(); 
-             setIsSignatureModalOpen(true);
-           } else if(key === 'delegate'){
-             handleDelegate(record);
+          } else if (key === "sign") {
+            fetchUploadedSignatures();
+            setIsSignatureModalOpen(true);
+          } else if (key === "delegate") {
+            handleDelegate(record);
           }
         };
 
         const menu = (
-          <Menu onClick={handleMenuClick}> 
+          <Menu onClick={handleMenuClick}>
             <Menu.Item key="clone">Clone</Menu.Item>
-            { userRole==3 &&  record.signStatus==0 && <Menu.Item key="send">Send for Signature</Menu.Item> }
-            {userRole==2 &&  <Menu.Item key="delegate">Delegate for Signature</Menu.Item>} 
-            {(userRole==3 &&  record.signStatus==0)&& <Menu.Item key="delete">Delete</Menu.Item> }
-            {(userRole==2 || (userRole==3 && record.signStatus==3) )&& <Menu.Item key="sign">Sign</Menu.Item>}
+            {userRole == 3 && record.signStatus == 0 && (
+              <Menu.Item key="send">Send for Signature</Menu.Item>
+            )}
+            {userRole == 2 && (
+              <Menu.Item key="delegate">Delegate for Signature</Menu.Item>
+            )}
+            {userRole == 3 && record.signStatus == 0 && (
+              <Menu.Item key="delete">Delete</Menu.Item>
+            )}
+            {(userRole == 2 || (userRole == 3 && record.signStatus == 3)) && (
+              <Menu.Item key="sign">Sign</Menu.Item>
+            )}
           </Menu>
         );
 
         return (
-          <Dropdown overlay={menu} trigger={['click']}>
+          <Dropdown overlay={menu} trigger={["click"]}>
             <Button>
               Actions <DownOutlined />
             </Button>
@@ -248,7 +271,7 @@ const handleDelegate = (record: any) => {
       setRequest(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error("Error fetching requests:", error);
-      message.error('Failed to fetch requests');
+      message.error("Failed to fetch requests");
       setRequest([]);
     } finally {
       setLoading(false);
@@ -267,35 +290,36 @@ const handleDelegate = (record: any) => {
       setSignatureImages([]);
     }
   };
-  
+
   useEffect(() => {
     const getOfficers = async () => {
       try {
-        const response = await courtClient.getOfficers(); 
-        const loggedInOfficerId  = session;
-        const filteredOfficers = Array.isArray(response) 
-        ? response.filter(officer => officer.id !== loggedInOfficerId) 
-        : [];
+        const response = await courtClient.getOfficers();
+        const loggedInOfficerId = session;
+        const filteredOfficers = Array.isArray(response)
+          ? response.filter((officer) => officer.id !== loggedInOfficerId)
+          : [];
         setOfficers(filteredOfficers);
       } catch (error) {
         console.error("Error fetching officers:", error);
         setOfficers([]);
       }
     };
-    
+
     getOfficers();
     fetchRequest();
   }, []);
 
   return (
     <MainAreaLayout
-      title={userRole==3?"Request Management" : "Officer functionality"}
+      title={userRole == 3 ? "Request Management" : "Officer functionality"}
       extra={
         <>
-          <Input placeholder="Search here........" 
-          type="search" 
-          onChange={(e) => setSearch(e.target.value)}
-           />
+          <Input
+            placeholder="Search here........"
+            type="search"
+            onChange={(e) => setSearch(e.target.value)}
+          />
           <Button
             type="primary"
             onClick={handleDrawer}
@@ -325,15 +349,11 @@ const handleDelegate = (record: any) => {
         open={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
       >
-        <Form
-          layout="vertical"
-          form={form}
-          onFinish={handleAddNewRequest}
-        >
+        <Form layout="vertical" form={form} onFinish={handleAddNewRequest}>
           <Form.Item
             label="Title"
             name="title"
-            rules={[{ required: true, message: 'Please enter a title' }]}
+            rules={[{ required: true, message: "Please enter a title" }]}
           >
             <Input placeholder="Enter Title Of Your Request" />
           </Form.Item>
@@ -341,7 +361,7 @@ const handleDelegate = (record: any) => {
           <Form.Item
             label="Select the word file"
             name="file"
-            rules={[{ required: true, message: 'Please upload a file' }]}
+            rules={[{ required: true, message: "Please upload a file" }]}
             valuePropName="fileList"
             getValueFromEvent={(e) => e.fileList}
           >
@@ -353,17 +373,12 @@ const handleDelegate = (record: any) => {
           <Form.Item
             label="Description"
             name="description"
-            rules={[{ required: true, message: 'Please enter a description' }]}
+            rules={[{ required: true, message: "Please enter a description" }]}
           >
             <Input.TextArea rows={5} placeholder="Enter Description" />
           </Form.Item>
 
-          <Button
-            type="primary"
-            htmlType="submit"
-            block
-            loading={loading}
-          >
+          <Button type="primary" htmlType="submit" block loading={loading}>
             Send Request
           </Button>
         </Form>
@@ -377,96 +392,130 @@ const handleDelegate = (record: any) => {
         cancelText="Cancel"
       >
         <Form layout="vertical">
-          <Form.Item
-            label="Select Officer"
-            required
-          >
+          <Form.Item label="Select Officer" required>
             <Select
               placeholder="Select an officer"
               value={selectedOfficer}
               onChange={(value) => {
-                console.log("Selected officer:", value); 
+                console.log("Selected officer:", value);
                 setSelectedOfficer(value);
-              }}              
-              options={officer.map(o => ({
+              }}
+              options={officer.map((o) => ({
                 label: `${o.name} <${o.email}>`,
-                value: o.id
+                value: o.id,
               }))}
             />
           </Form.Item>
         </Form>
-      </Modal> 
+      </Modal>
       <Modal
-  title="Delegate Request"
-  visible={isDelegateModalOpen}
-  onCancel={() => {
-    setIsDelegateModalOpen(false);
-    setDelegateReason("");
-  }}
-  onOk={async () => {
-    if (!delegateReason.trim()) {
-      message.warning("Please enter a reason for delegation.");
-      return;
-    }
-    try {
-      await requestClient.handleDelegate({
-        recordId: delegationRecord?.id,
-        reason: delegateReason,
-      });
-      message.success("Request delegated successfully");
-      setIsDelegateModalOpen(false);
-      setDelegateReason("");
-      setDelegationRecord(null);
-      fetchRequest();
-    } catch (err) {
-      console.error("Delegation error:", err);
-      message.error("Failed to delegate request");
-    }
-  }}
-  okText="Submit"
-  cancelText="Cancel"
->
-  <Form layout="vertical">
-    <Form.Item label="Reason for Delegation" required>
-      <Input.TextArea
-        rows={4}
-        placeholder="Enter reason here..."
-        value={delegateReason}
-        onChange={(e) => setDelegateReason(e.target.value)}
-      />
-    </Form.Item>
-  </Form>
-</Modal>
- <Modal
-  title="Your Uploaded Signatures"
-  visible={isSignatureModalOpen}
-  onCancel={() => setIsSignatureModalOpen(false)}
-  footer={[
-    <Button key="cancel" onClick={() => setIsSignatureModalOpen(false)}>
-      Close
-    </Button>,
-    <Button key="goto" type="primary" onClick={() => navigate('/dashboard/signatures')}>
-      Go to Signature Page
-    </Button>,
-  ]}
->
-  {signatureImages.length > 0 ? (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
-      {signatureImages.map((url, idx) => (
-        <Image 
-          key={idx}
-          src={url}
-          alt={`Signature ${idx + 1}`}
-          style={{ width: 120, border: '1px solid #ccc', padding: 4, borderRadius: 4 }}
-        />
-      ))}
-    </div>
-  ) : (
-    <p>No signatures uploaded yet.</p>
-  )}
- </Modal>
-
-
+        title="Delegate Request"
+        visible={isDelegateModalOpen}
+        onCancel={() => {
+          setIsDelegateModalOpen(false);
+          setDelegateReason("");
+        }}
+        onOk={async () => {
+          if (!delegateReason.trim()) {
+            message.warning("Please enter a reason for delegation.");
+            return;
+          }
+          try {
+            await requestClient.handleDelegate({
+              recordId: delegationRecord?.id,
+              reason: delegateReason,
+            });
+            message.success("Request delegated successfully");
+            setIsDelegateModalOpen(false);
+            setDelegateReason("");
+            setDelegationRecord(null);
+            fetchRequest();
+          } catch (err) {
+            console.error("Delegation error:", err);
+            message.error("Failed to delegate request");
+          }
+        }}
+        okText="Submit"
+        cancelText="Cancel"
+      >
+        <Form layout="vertical">
+          <Form.Item label="Reason for Delegation" required>
+            <Input.TextArea
+              rows={4}
+              placeholder="Enter reason here..."
+              value={delegateReason}
+              onChange={(e) => setDelegateReason(e.target.value)}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+      <Modal
+        title="Your Uploaded Signatures"
+        visible={isSignatureModalOpen}
+        onCancel={() => setIsSignatureModalOpen(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setIsSignatureModalOpen(false)}>
+            Close
+          </Button>,
+          <Button
+            key="goto"
+            type="primary"
+            onClick={() => navigate("/dashboard/signatures")}
+          >
+            Upload Signature
+          </Button>,
+          <Button
+            type="primary"
+            onClick={() => {
+              if (!selectedImage) {
+                message.warning("Please select a signature image.");
+                return;
+              }
+              console.log("Selected signature image URL:", selectedImage);
+              // You can now pass this to an API, close the modal, etc.
+              setIsSignatureModalOpen(false);
+            }}
+          >
+            Sign
+          </Button>,
+        ]}
+      >
+        {signatureImages.length > 0 ? (
+          <div
+            style={{
+              maxHeight: "300px",
+              overflowY: "auto",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "16px",
+              paddingRight: "8px",
+            }}
+          >
+            {signatureImages.map((url, idx) => (
+              <Image
+                key={idx}
+                src={url}
+                alt={`Signature ${idx + 1}`}
+                preview={false}
+                onClick={() => setSelectedImage(url)}
+                style={{
+                  width: 120,
+                  border:
+                    selectedImage === url
+                      ? "3px solid #1890ff"
+                      : "1px solid #ccc",
+                  padding: 4,
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  transition: "border 0.2s",
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <p>No signatures uploaded yet.</p>
+        )}
+      </Modal>
     </MainAreaLayout>
   );
 };
