@@ -138,7 +138,8 @@ export default function RequestPage() {
       }
       templateVariablesRef.current = response.templateVariables || [];
       templateTitleRef.current = response.templateName;
-      templateSignStatusRef.current = response.templateName;
+      templateSignStatusRef.current = response.signStatus;
+      console.log("current signStatus =>",response.signSatus);
       const fieldColumns = response.allfields.map((field: string) => ({
         title: field,
         dataIndex: field,
@@ -162,8 +163,21 @@ export default function RequestPage() {
         {
           title: "Actions",
           key: "actions",
-          render: (_: any, record: any) =>
-            (record.signStatus != 2)? (
+          render: (_: any, record: any) => {
+            const isRecordRejected = record.signStatus === 2;
+            const isTemplateRejected = templateSignStatusRef.current === 2;
+
+            const shouldDisableActions = isRecordRejected || isTemplateRejected;
+            console.log("template value ",templateSignStatusRef);
+            return shouldDisableActions ? (
+              <Button
+                style={{ background: "#ff4d4f", color: "white" }}
+                type="primary"
+                disabled
+              >
+                Rejected
+              </Button>
+            ) : (
               <Space size="middle">
                 <Button type="link" onClick={() => handlePreview(record)}>
                   View
@@ -182,21 +196,14 @@ export default function RequestPage() {
                     Delete
                   </Button>
                 </Popconfirm>
-                {userRole == 2 && (
+                {userRole === 2 && (
                   <Button type="link" onClick={() => showRejectModal(record)}>
                     Reject
                   </Button>
                 )}
               </Space>
-            ) : (
-              <Button
-                style={{ background: "#ff4d4f" ,color: "white"}}
-                type="primary"
-                disabled={true}
-              >
-                Rejected
-              </Button>
-            ),
+            );
+          },
         },
       ];
 
@@ -241,7 +248,7 @@ export default function RequestPage() {
       title={templateTitleRef.current}
       extra={
         <> 
-         { templateSignStatusRef.current == 2 && (
+         { templateSignStatusRef.current !== 2 && (
           <Button
             type="primary"
             onClick={handleDrawer}
