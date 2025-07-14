@@ -3,9 +3,10 @@ import CustomTable from "../components/CustomTable";
 import { useState, useEffect } from "react";
 import { UploadOutlined, DownOutlined } from "@ant-design/icons";
 import { courtClient } from "../store";
-import { requestClient, signClient } from "../store";
+import { requestClient, signClient, otpClient } from "../store";
 import { useNavigate } from "react-router";
 import { useAppStore } from "../store";
+
 import {
   Button,
   Drawer,
@@ -21,6 +22,7 @@ import {
   Modal,
   Image,
 } from "antd";
+import { record } from "zod";
 
 interface RequestItem {
   id: string;
@@ -52,13 +54,15 @@ const Requests: React.FC = () => {
   const userRole = useAppStore().session?.role;
   const [isDelegateModalOpen, setIsDelegateModalOpen] = useState(false);
   const [delegateReason, setDelegateReason] = useState("");
-  const [delegationRecord, setDelegationRecord] = useState<RequestItem | null>(
-    null
-  );
+  const [delegationRecord, setDelegationRecord] = useState<RequestItem | null>(null);
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [signatureImages, setSignatureImages] = useState<string[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [isRejectionModalOpen, setIsRejectionModalOpen] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectionRecord, setRejectionRecord] = useState<RequestItem | null>(null);
 
   const handleDrawer = () => {
     setIsDrawerOpen(true);
@@ -112,8 +116,6 @@ const Requests: React.FC = () => {
       message.error("Please select an officer.");
       return;
     }
-    // alert(selectedOfficer);
-    // console.error("  wqdfegrhjkjyhgfdsdfghjjhytgfdsasdfgh");
     try {
       await requestClient.sendRequestToOfficer({
         recordId: selectedRequest.id,
@@ -123,7 +125,6 @@ const Requests: React.FC = () => {
       setIsModalOpen(false);
       setSelectedRequest(null);
       setSelectedOfficer(null);
-      // await fetchRequest();
     } catch (err) {
       console.error("Error sending request:", err);
       message.error("Failed to send request");
@@ -134,6 +135,10 @@ const Requests: React.FC = () => {
     setDelegationRecord(record);
     setIsDelegateModalOpen(true);
   };
+  const handleReject = (record: any) => {
+    setRejectionRecord(record);
+    setIsRejectionModalOpen(true);
+  };  
   const columns = [
     {
       title: "Request",
@@ -142,8 +147,8 @@ const Requests: React.FC = () => {
       render: (count: any[], record: any) => (
         <Button
           type="link"
-          onClick={async () => { 
-            await requestClient.previewDocs(record.id)
+          onClick={async () => {
+            await requestClient.previewDocs(record.id);
           }}
         >
           {record.templateName}
@@ -167,9 +172,21 @@ const Requests: React.FC = () => {
     },
     {
       title: "Rejected Document",
-      dataIndex: "rejectCount",
+      dataIndex: "rejectValue",
       key: "RejectedDocument",
-      render: (count: number) => <Button type="link">{count || 0}</Button>,
+      render: (count: number, record: any) => {
+        // console.log("data in rejectedCount =>", record.data);
+        const rejectValue =
+          record.data?.filter((d: any) => d.signStatus==2)?.length || 0;
+        return (<Button
+          type="link"
+          onClick={() => {
+            navigate(`/dashboard/request/rejected/${record.id}`);
+          }}
+        >
+          {rejectValue}
+        </Button>)
+      },
     },
     {
       title: "Created At",
@@ -187,15 +204,20 @@ const Requests: React.FC = () => {
       dataIndex: "signStatus",
       key: "signStatus",
       render: (_: any, record: any) => {
-        const statusMap = {
+        const statusMap: any = {
           0: { label: "Unsigned", color: "orange" },
-          1: { label: "Signed", color: "green" },
+          1: { label: "Ready for Sign", color: "pink" },
+          2: { label: "Rejected", color: "red" },
           3: { label: "Delegated", color: "blue" },
           4: { label: "In Progress", color: "purple" },
-          default: { label: "Rejected", color: "red" },
+          5: { label: "Signed", color: "green" },
+          6: { label: "Ready for Dispatch", color: "cyan" },
+          7: { label: "Dispatched", color: "gray" },
+          default: { label: "Unknown", color: "black" },
         };
         let signstatusValue = record.signStatus;
-        const { label, color } = statusMap[signstatusValue] || statusMap.default;
+        const { label, color } =
+          statusMap[signstatusValue] || statusMap.default;
 
         return (
           <Tag color={color} onClick={() => console.log(record.signStatus)}>
@@ -205,7 +227,7 @@ const Requests: React.FC = () => {
       },
     },
     {
-      //  title: "Actions",
+      title: "Actions",
       key: "actions",
       render: (_: any, record: any) => {
         const handleMenuClick = ({ key }: any) => {
@@ -224,36 +246,58 @@ const Requests: React.FC = () => {
           } else if (key === "delete") {
             handleDelete(record._id);
           } else if (key === "sign") {
-            fetchUploadedSignatures();
+            fetchUploadedSignatures(record);
             setIsSignatureModalOpen(true);
           } else if (key === "delegate") {
             handleDelegate(record);
+          } else if (key === "reject") {
+            handleReject(record);
           }
         };
 
         const menu = (
           <Menu onClick={handleMenuClick}>
             <Menu.Item key="clone">Clone</Menu.Item>
-            {userRole == 3 && record.signStatus == 0 && (
+            {record.signStatus == 0 && (
               <Menu.Item key="send">Send for Signature</Menu.Item>
             )}
-            {userRole == 2 && (
+            {userRole == 2 && record.signStatus == 1 && (
               <Menu.Item key="delegate">Delegate for Signature</Menu.Item>
             )}
             {userRole == 3 && record.signStatus == 0 && (
               <Menu.Item key="delete">Delete</Menu.Item>
             )}
-            {(userRole == 2 || (userRole == 3 && record.signStatus == 3)) && (
+            {((userRole == 2 && record.signStatus != 3) ||
+              (userRole == 3 && record.signStatus == 3)) && (
               <Menu.Item key="sign">Sign</Menu.Item>
+            )}
+            {userRole == 2 && record.signStatus == 1 && (
+              <Menu.Item key="reject">Reject</Menu.Item>
             )}
           </Menu>
         );
 
         return (
           <Dropdown overlay={menu} trigger={["click"]}>
-            <Button>
-              Actions <DownOutlined />
-            </Button>
+            {record.signStatus !== 2 ? (
+              <Button>
+                Actions <DownOutlined />
+              </Button>
+            ) : record.signStatus !== 2 ? (
+              <Dropdown overlay={menu} trigger={["click"]}>
+                <Button>
+                  Actions <DownOutlined />
+                </Button>
+              </Dropdown>
+            ) : (
+              <Button
+                style={{ background: "#ff4d4f", color: "white" }}
+                type="primary"
+                disabled={true}
+              >
+                Rejected
+              </Button>
+            )}
           </Dropdown>
         );
       },
@@ -277,13 +321,14 @@ const Requests: React.FC = () => {
       setLoading(false);
     }
   };
-  const fetchUploadedSignatures = async () => {
+  const fetchUploadedSignatures = async (record:any) => {
     try {
-      const response = await signClient.getSign(session); // fetch using logged-in userId
+      const response = await signClient.getSign(session);
       const urls = Array.isArray(response)
         ? response.map((item: any) => item.url)
         : [];
       setSignatureImages(urls);
+      setSelectedRequest(record);
     } catch (error) {
       console.error("Error fetching signatures:", error);
       message.error("Failed to load signatures");
@@ -466,14 +511,17 @@ const Requests: React.FC = () => {
           </Button>,
           <Button
             type="primary"
-            onClick={() => {
+            onClick={async () => {
               if (!selectedImage) {
                 message.warning("Please select a signature image.");
                 return;
               }
               console.log("Selected signature image URL:", selectedImage);
-              // You can now pass this to an API, close the modal, etc.
+              console.log("selected Request", selectedRequest);
+              await otpClient.generateOtp(selectedRequest?.id);
+              message.success("OTP sended Successfully");
               setIsSignatureModalOpen(false);
+              setIsOtpModalOpen(true);
             }}
           >
             Sign
@@ -515,6 +563,101 @@ const Requests: React.FC = () => {
         ) : (
           <p>No signatures uploaded yet.</p>
         )}
+      </Modal>
+      <Modal
+        title="Enter OTP to Confirm Signature"
+        visible={isOtpModalOpen}
+        onCancel={() => setIsOtpModalOpen(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setIsOtpModalOpen(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            onClick={async () => {
+              if (!otp.trim()) {
+                message.warning("Please enter OTP");
+                return;
+              }
+
+              try {
+                console.log("OTP:", otp);
+                console.log("Selected Signature Image:", selectedImage);
+                console.log("Selected Record:", selectedRequest);
+
+                const res = await otpClient.verifyOtpAndSign(
+                  otp,
+                  selectedRequest?.id
+                );
+                if (res?.ok) {
+                  message.success("Document signed successfully.");
+                  setIsOtpModalOpen(false);
+                  setIsSignatureModalOpen(false);
+                  setOtp("");
+                  setSelectedImage(null);
+                  fetchRequest();
+                } else {
+                  message.error("Invalid OTP or signing failed.");
+                }
+              } catch (error) {
+                console.error("Signing failed:", error);
+                message.error("Failed to sign document.");
+              }
+            }}
+          >
+            Submit OTP
+          </Button>,
+        ]}
+      >
+        <Input
+          placeholder="Enter OTP"
+          value={otp}
+          onChange={(e) => setOtp(e.target.value)}
+        />
+      </Modal>
+      <Modal
+        title="Rejection Reason"
+        visible={isRejectionModalOpen}
+        onCancel={() => {
+          setIsRejectionModalOpen(false);
+          setRejectionReason("");
+          setRejectionRecord(null);
+        }}
+        onOk={async () => {
+          if (!rejectionReason.trim()) {
+            message.warning("Please provide a reason for rejection.");
+            return;
+          }
+
+          try {
+            await requestClient.handleRejectRequest(
+              rejectionRecord?.id,
+              rejectionReason
+            );
+            message.success("Request rejected successfully.");
+            setIsRejectionModalOpen(false);
+            setRejectionReason("");
+            setRejectionRecord(null);
+            fetchRequest();
+          } catch (err) {
+            console.error("Rejection failed:", err);
+            message.error("Failed to reject request.");
+          }
+        }}
+        okText="Reject"
+        cancelText="Cancel"
+      >
+        <Form layout="vertical">
+          <Form.Item label="Reason for Rejection" required>
+            <Input.TextArea
+              rows={4}
+              placeholder="Enter reason here..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+            />
+          </Form.Item>
+        </Form>
       </Modal>
     </MainAreaLayout>
   );
