@@ -90,7 +90,6 @@ const Requests: React.FC = () => {
       setIsDrawerOpen(false);
       await fetchRequest();
     } catch (error) {
-      // console.error("Error submitting request:", error);
       message.error("Failed to submit request");
     } finally {
       setLoading(false);
@@ -588,15 +587,16 @@ const Requests: React.FC = () => {
 
                 const res = await otpClient.verifyOtpAndSign(
                   otp,
-                  selectedRequest?.id
+                  selectedRequest?.id , 
+                  selectedImage
                 );
-                if (res?.ok) {
-                  message.success("Document signed successfully.");
+                if (res) {
+                  message.success("Starts Signing the document");
                   setIsOtpModalOpen(false);
                   setIsSignatureModalOpen(false);
-                  setOtp("");
+                  setOtp(""); 
                   setSelectedImage(null);
-                  fetchRequest();
+                  // fetchRequest();
                 } else {
                   message.error("Invalid OTP or signing failed.");
                 }

@@ -15,17 +15,18 @@ export class OtpClient extends Client {
         }
     } 
     async verifyOtpAndSign(
-        otp:string , receiverId:any  
+        otp:string , recordId:any  , selectedImg:any
     ){
         try { 
             const response = await this.request("POST",  `/api/otp/verify`,{
                 data:{
                     otp:otp, 
-                    receiverId:receiverId
+                    recordId:recordId,
+                    selectedImg:selectedImg 
                 }
             });
             console.log(response.data.response);
-            return response.data ;
+            return response.data.success ;
             } catch (err) {
                 console.log("Error while uploading the signature =>", err);
                 throw err;
