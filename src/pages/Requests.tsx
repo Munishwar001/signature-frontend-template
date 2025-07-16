@@ -6,7 +6,7 @@ import { courtClient } from "../store";
 import { requestClient, signClient, otpClient } from "../store";
 import { useNavigate } from "react-router";
 import { useAppStore } from "../store";
-
+import socket from "../client/socket";
 import {
   Button,
   Drawer,
@@ -35,15 +35,13 @@ interface RequestItem {
   status?: string;
 }
 
-const Requests: React.FC = () => {
+const Requests: React.FC = () => {   
   const navigate = useNavigate();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [form] = Form.useForm();
   const [officer, setOfficers] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(
-    null
-  );
+  const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(null);
   const [selectedOfficer, setSelectedOfficer] = useState<string | null>(null);
   const [, setCurrentPage] = useState<number>(1);
   const [request, setRequest] = useState<RequestItem[]>([]);
@@ -54,15 +52,25 @@ const Requests: React.FC = () => {
   const userRole = useAppStore().session?.role;
   const [isDelegateModalOpen, setIsDelegateModalOpen] = useState(false);
   const [delegateReason, setDelegateReason] = useState("");
-  const [delegationRecord, setDelegationRecord] = useState<RequestItem | null>(null);
+  const [delegationRecord, setDelegationRecord] = useState<RequestItem | null>(
+    null
+  );
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
-  const [signatureImages, setSignatureImages] = useState<string[]>([]);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [signatureImages, setSignatureImages] = useState<
+    { id: string; url: string }[]
+  >([]);
+  const [selectedImage, setSelectedImage] = useState<{
+    id: string;
+    url: string;
+  } | null>(null);
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [otp, setOtp] = useState("");
   const [isRejectionModalOpen, setIsRejectionModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [rejectionRecord, setRejectionRecord] = useState<RequestItem | null>(null);
+  const [rejectionRecord, setRejectionRecord] = useState<RequestItem | null>(
+    null
+  );
+  const [signingInProgress, setSigningInProgress] = useState(false);
 
   const handleDrawer = () => {
     setIsDrawerOpen(true);
@@ -137,7 +145,7 @@ const Requests: React.FC = () => {
   const handleReject = (record: any) => {
     setRejectionRecord(record);
     setIsRejectionModalOpen(true);
-  };  
+  };
   const columns = [
     {
       title: "Request",
@@ -176,15 +184,17 @@ const Requests: React.FC = () => {
       render: (count: number, record: any) => {
         // console.log("data in rejectedCount =>", record.data);
         const rejectValue =
-          record.data?.filter((d: any) => d.signStatus==2)?.length || 0;
-        return (<Button
-          type="link"
-          onClick={() => {
-            navigate(`/dashboard/request/rejected/${record.id}`);
-          }}
-        >
-          {rejectValue}
-        </Button>)
+          record.data?.filter((d: any) => d.signStatus == 2)?.length || 0;
+        return (
+          <Button
+            type="link"
+            onClick={() => {
+              navigate(`/dashboard/request/rejected/${record.id}`);
+            }}
+          >
+            {rejectValue}
+          </Button>
+        );
       },
     },
     {
@@ -219,9 +229,7 @@ const Requests: React.FC = () => {
           statusMap[signstatusValue] || statusMap.default;
 
         return (
-          <Tag color={color} onClick={() => console.log(record.signStatus)}>
-            {label}
-          </Tag>
+          <Tag color={color}>{label}</Tag>
         );
       },
     },
@@ -266,7 +274,7 @@ const Requests: React.FC = () => {
             {userRole == 3 && record.signStatus == 0 && (
               <Menu.Item key="delete">Delete</Menu.Item>
             )}
-            {((userRole == 2 && record.signStatus != 3) ||
+            {((userRole == 2 && record.signStatus == 1) ||
               (userRole == 3 && record.signStatus == 3)) && (
               <Menu.Item key="sign">Sign</Menu.Item>
             )}
@@ -320,13 +328,16 @@ const Requests: React.FC = () => {
       setLoading(false);
     }
   };
-  const fetchUploadedSignatures = async (record:any) => {
+  const fetchUploadedSignatures = async (record: any) => {
     try {
       const response = await signClient.getSign(session);
-      const urls = Array.isArray(response)
-        ? response.map((item: any) => item.url)
+      const images = Array.isArray(response)
+        ? response.map((item: any) => ({
+            id: item.id,
+            url: item.url,
+          }))
         : [];
-      setSignatureImages(urls);
+      setSignatureImages(images);
       setSelectedRequest(record);
     } catch (error) {
       console.error("Error fetching signatures:", error);
@@ -353,6 +364,22 @@ const Requests: React.FC = () => {
     getOfficers();
     fetchRequest();
   }, []);
+  useEffect(() => {
+    socket.on("inProcessing", (receivedRecordId: string) => {
+      console.log("Received inProcessing for:", receivedRecordId);
+
+      setRequest((prev) =>
+        prev.map((req) =>req.id === receivedRecordId? { ...req, signStatus: 4 } : req ));
+
+      if (selectedRequest?.id === receivedRecordId) {
+        setIsOtpModalOpen(false); 
+        message.success("Started signing the document.");
+      }
+    });
+    return () => {
+      socket.off("inProcessing");
+    };
+  }, [selectedRequest ,socket]);
 
   return (
     <MainAreaLayout
@@ -538,17 +565,17 @@ const Requests: React.FC = () => {
               paddingRight: "8px",
             }}
           >
-            {signatureImages.map((url, idx) => (
+            {signatureImages.map((img, idx) => (
               <Image
                 key={idx}
-                src={url}
+                src={img.url}
                 alt={`Signature ${idx + 1}`}
                 preview={false}
-                onClick={() => setSelectedImage(url)}
+                onClick={() => setSelectedImage(img)}
                 style={{
                   width: 120,
                   border:
-                    selectedImage === url
+                    selectedImage?.url === img.url
                       ? "3px solid #1890ff"
                       : "1px solid #ccc",
                   padding: 4,
@@ -581,28 +608,28 @@ const Requests: React.FC = () => {
               }
 
               try {
-                console.log("OTP:", otp);
-                console.log("Selected Signature Image:", selectedImage);
-                console.log("Selected Record:", selectedRequest);
-
+                setSigningInProgress(true);
                 const res = await otpClient.verifyOtpAndSign(
                   otp,
-                  selectedRequest?.id , 
+                  selectedRequest?.id,
                   selectedImage
                 );
                 if (res) {
                   message.success("Starts Signing the document");
                   setIsOtpModalOpen(false);
                   setIsSignatureModalOpen(false);
-                  setOtp(""); 
+                  setOtp("");
                   setSelectedImage(null);
-                  // fetchRequest();
+                  setSelectedRequest(null);
+                  fetchRequest();
                 } else {
                   message.error("Invalid OTP or signing failed.");
                 }
               } catch (error) {
                 console.error("Signing failed:", error);
                 message.error("Failed to sign document.");
+              } finally {
+                setSigningInProgress(false);
               }
             }}
           >

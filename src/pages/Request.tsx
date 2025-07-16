@@ -71,7 +71,13 @@ export default function RequestPage() {
 
   const handlePreview = (record: any) => {
     try {
-      const previewUrl = `http://localhost:3000/api/templates/preview/${id}/${record.id}`;
+      // const previewUrl = `http://localhost:3000/api/templates/preview/${id}/${record.id}`;
+      const isSigned =
+        record.signStatus === 5 || templateSignStatusRef.current === 5;
+       alert(isSigned);
+      const previewUrl = isSigned
+        ? `${record.url?.startsWith("http") ? record.url : `http://localhost:3000/${record.url}`}`
+        : `http://localhost:3000/api/templates/preview/${id}/${record.id}`;
       window.open(previewUrl, "_blank");
     } catch (err) {
       message.error("Preview failed");
@@ -152,13 +158,26 @@ export default function RequestPage() {
           title: "Status",
           dataIndex: "signStatus",
           key: "signStatus",
-          render: (status: number) => (
-            <Tag
-              color={status === 0 ? "orange" : status === 1 ? "green" : "red"}
-            >
-              {status === 0 ? "Unsigned" : status === 1 ? "Signed" : "Rejected"}
-            </Tag>
-          ),
+          render: (_: any, record: any) => {
+            const statusMap: any = {
+              0: { label: "Unsigned", color: "orange" },
+              1: { label: "Ready for Sign", color: "pink" },
+              2: { label: "Rejected", color: "red" },
+              3: { label: "Delegated", color: "blue" },
+              4: { label: "In Progress", color: "purple" },
+              5: { label: "Signed", color: "green" },
+              6: { label: "Ready for Dispatch", color: "cyan" },
+              7: { label: "Dispatched", color: "gray" },
+              default: { label: "Unknown", color: "black" },
+            };
+            let signstatusValue = record.signStatus;
+            const { label, color } =
+              statusMap[signstatusValue] || statusMap.default;
+
+            return (
+              <Tag color={color}>{label}</Tag>
+            );
+          },
         },
         {
           title: "Actions",
@@ -168,7 +187,7 @@ export default function RequestPage() {
             const isTemplateRejected = templateSignStatusRef.current === 2;
 
             const shouldDisableActions = isRecordRejected || isTemplateRejected;
-            console.log("template value ",templateSignStatusRef);
+            console.log("template value ", templateSignStatusRef);
             return shouldDisableActions ? (
               <Button
                 style={{ background: "#ff4d4f", color: "white" }}
@@ -179,24 +198,26 @@ export default function RequestPage() {
               </Button>
             ) : (
               <Space size="middle">
-                <Button type="link" onClick={() => handlePreview(record)}>
+                <Button type="link" onClick={() =>{handlePreview(record) ,console.log(record.signStatus)}}>
                   View
                 </Button>
-                <Popconfirm
-                  title="Are you sure you want to delete this record?"
-                  onConfirm={() => handleDelete(record)}
-                  okText="Yes"
-                  cancelText="No"
-                >
-                  <Button
-                    type="link"
-                    onClick={() => console.log(record)}
-                    style={{ color: "#ff4d4f" }}
+                {record.signStatus === 0 && (
+                  <Popconfirm 
+                    title="Are you sure you want to delete this record?"
+                    onConfirm={() => handleDelete(record)}
+                    okText="Yes"
+                    cancelText="No"
                   >
-                    Delete
-                  </Button>
-                </Popconfirm>
-                {userRole === 2 && (
+                    <Button
+                      type="link"
+                      onClick={() => console.log(record)}
+                      style={{ color: "#ff4d4f" }}
+                    >
+                      Delete
+                    </Button>
+                  </Popconfirm>
+                )}
+                {userRole === 2 && record.signStatus === 0 && (
                   <Button type="link" onClick={() => showRejectModal(record)}>
                     Reject
                   </Button>
@@ -214,6 +235,7 @@ export default function RequestPage() {
           key: index,
           id: item.id,
           signStatus: item.signStatus,
+          url: item.url,
         };
 
         const dataEntries =
@@ -248,7 +270,7 @@ export default function RequestPage() {
       title={templateTitleRef.current}
       extra={
         <> 
-         { templateSignStatusRef.current !== 2 && (
+         { templateSignStatusRef.current == 0 && (
           <Button
             type="primary"
             onClick={handleDrawer}

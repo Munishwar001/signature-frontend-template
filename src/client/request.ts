@@ -97,7 +97,7 @@ export class RequestClient extends Client {
           })) || [],
         templateVariables: response.data.templateVariables || [],
         templateName: response.data.templateName,
-		signStatus:response.data.signStatus,
+		    signStatus:response.data.signStatus,
       };   
     } catch (error) {
       throw error;
