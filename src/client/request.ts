@@ -34,7 +34,7 @@ export class RequestClient extends Client {
   async sendRequestToOfficer(data: { recordId: String; officerId: String }) {
     try {
       console.log("data while sending for sign ", data);
-      const res = await this.request("POST", `/api/templates/sendForSign`, {
+      const res = await this.request("POST", `/templates/sendForSign`, {
         data: { data },
         headers: { "Content-Type": "application/json" },
       });
@@ -46,7 +46,7 @@ export class RequestClient extends Client {
   }
   async cloneFormData(id: String) {
     try {
-      const res = await this.request("GET", `/api/templates/${id}/clone`);
+      const res = await this.request("GET", `/templates/${id}/clone`);
       console.log(res);
       return res;
     } catch (err) {
@@ -54,7 +54,7 @@ export class RequestClient extends Client {
     }
   }
   async getRequest() {
-    const res = await this.request("GET", `/api/templates`);
+    const res = await this.request("GET", `/templates`);
     return res.data;
   }
 
@@ -121,7 +121,7 @@ export class RequestClient extends Client {
     try {
       const res = await this.request(
         "DELETE",
-        `/api/templates/deleteWholeTemplate/${id}`
+        `/templates/deleteWholeTemplate/${id}`
       );
       console.log("response of this deleteWholeTemplate", res);
       return res.status === 201;
@@ -132,7 +132,7 @@ export class RequestClient extends Client {
 
   async handleDelegate(record: any) {
     try {
-      const res = await this.request("POST", `/api/templates/delegate`, {
+      const res = await this.request("POST", `/templates/delegate`, {
         data: record,
       });
       console.log("response of this requestClient", res);
@@ -144,7 +144,7 @@ export class RequestClient extends Client {
 
   async previewDocs(id: String) {
     try {
-      const previewUrl = `http://localhost:3000/api/templates/previewDocs/${id}`;
+      const previewUrl = `http://localhost:3000/templates/previewDocs/${id}`;
       window.open(previewUrl, "_blank");
     } catch (error) {
       console.log("Error while preview the DocsTemplate =>", error);
@@ -153,9 +153,7 @@ export class RequestClient extends Client {
   }
   async fetchRejectedData(id: any) {
     try {
-      const response = await this.request(
-        "GET",
-        `/api/templates/fetchRejected/${id}`
+      const response = await this.request("GET", `/api/templates/fetchRejected/${id}`
       );
       console.log("fetching response", response);
       return {
@@ -188,7 +186,7 @@ export class RequestClient extends Client {
   async handleRejectRequest(id:any , reason: string) {
     try { 
 		console.log("in the sendRejected Request section =>",id ,reason);
-      const res = await this.request("POST", `/api/templates/rejectWholeRequest/${id}`, {
+      const res = await this.request("POST", `/templates/rejectWholeRequest/${id}`, {
         data:{ reason}, 
       });
       console.log("response of this requestClient", res);

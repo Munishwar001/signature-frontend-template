@@ -657,7 +657,7 @@ const Requests: React.FC = () => {
             return;
           }
 
-          try {
+          try { 
             await requestClient.handleRejectRequest(
               rejectionRecord?.id,
               rejectionReason
